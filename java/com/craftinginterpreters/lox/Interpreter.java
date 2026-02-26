@@ -52,16 +52,17 @@ class Interpreter implements Expr.Visitor<Object>,
   }
   
 //< Functions interpreter-constructor
-/* Evaluating Expressions interpret < Statements and State interpret
-  void interpret(Expr expression) { // [void]
+// Evaluating Expressions interpret < Statements and State interpret
+  String interpret(Expr expression) { // [void]
     try {
       Object value = evaluate(expression);
-      System.out.println(stringify(value));
+      return (stringify(value));
     } catch (RuntimeError error) {
       Lox.runtimeError(error);
+      return null;
     }
   }
-*/
+
 //> Statements and State interpret
   void interpret(List<Stmt> statements) {
     try {
