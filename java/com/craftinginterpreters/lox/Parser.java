@@ -19,18 +19,21 @@ class Parser {
   private final List<Token> tokens;
   private int current = 0;
 
+  private boolean allowExpression;
+  private boolean foundExpression = false;
+
   Parser(List<Token> tokens) {
     this.tokens = tokens;
   }
-/* Parsing Expressions parse < Statements and State parse
-  Expr parse() {
+  // Parsing Expressions parse < Statements and State parse
+  public Object parseExpression() {
     try {
       return expression();
     } catch (ParseError error) {
       return null;
     }
   }
-*/
+
 //> Statements and State parse
   List<Stmt> parse() {
     List<Stmt> statements = new ArrayList<>();
