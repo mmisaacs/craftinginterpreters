@@ -35,6 +35,10 @@ class Interpreter implements Expr.Visitor<Object>,
 
 //< Statements and State environment-field
 //> Functions interpreter-constructor
+
+  // initalize object when a variable isn't initalized
+  private static Object unititalized = new Object();
+
   Interpreter() {
     globals.define("clock", new LoxCallable() {
       @Override
@@ -472,12 +476,13 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Statements and State visit-variable
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-/* Statements and State visit-variable < Resolving and Binding call-look-up-variable
-    return environment.get(expr.name);
-*/
-//> Resolving and Binding call-look-up-variable
-    return lookUpVariable(expr.name, expr);
-//< Resolving and Binding call-look-up-variable
+  //Statements and State visit-variable < Resolving and Binding call-look-up-variable
+    Object value = environment.get(expr.name);
+
+    if(value == unititalized){
+      throw new RuntimeError(expr.name, "Variable must be initialized before use.");
+    }
+    return value;
   }
 //> Resolving and Binding look-up-variable
   private Object lookUpVariable(Token name, Expr expr) {
