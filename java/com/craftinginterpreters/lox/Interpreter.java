@@ -539,4 +539,6 @@ class Interpreter implements Expr.Visitor<Object>,
     return object.toString();
   }
 //< stringify
+
+  private static class BreakException extends RuntimeException{}
 }

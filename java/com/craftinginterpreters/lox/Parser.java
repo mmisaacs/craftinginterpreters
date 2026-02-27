@@ -18,6 +18,7 @@ class Parser {
 //< parse-error
   private final List<Token> tokens;
   private int current = 0;
+  private int loopDepth = 0;
 
   private boolean allowExpression;
   private boolean foundExpression = false;
@@ -121,6 +122,8 @@ class Parser {
 //> Control Flow match-while
     if (match(WHILE)) return whileStatement();
 //< Control Flow match-while
+    //keyword for break
+    if (match(BREAK)) return breakStatement();
 //> parse-block
     if (match(LEFT_BRACE)) return new Stmt.Block(block());
 //< parse-block
@@ -164,27 +167,32 @@ class Parser {
 //> for-body
     Stmt body = statement();
 
-//> for-desugar-increment
-    if (increment != null) {
-      body = new Stmt.Block(
-          Arrays.asList(
-              body,
-              new Stmt.Expression(increment)));
+    try{
+      loopDepth++;
+      Stmt body = statement();
+
+      //> for-desugar-increment
+      if (increment != null) {
+        body = new Stmt.Block(Arrays.asList(
+                        body, new Stmt.Expression(increment)));
+      }
+     //< for-desugar-increment
+      //> for-desugar-condition
+      if (condition == null) condition = new Expr.Literal(true);
+      body = new Stmt.While(condition, body);
+      //< for-desugar-condition
+
+      //> for-desugar-initializer
+      if (initializer != null) {
+        body = new Stmt.Block(Arrays.asList(initializer, body));
+      }
+      //< for-desugar-initializer
+
+      return body;
     }
-
-//< for-desugar-increment
-//> for-desugar-condition
-    if (condition == null) condition = new Expr.Literal(true);
-    body = new Stmt.While(condition, body);
-
-//< for-desugar-condition
-//> for-desugar-initializer
-    if (initializer != null) {
-      body = new Stmt.Block(Arrays.asList(initializer, body));
+    finally{
+      loopDepth--''
     }
-
-//< for-desugar-initializer
-    return body;
 //< for-body
   }
 //< Control Flow for-statement
@@ -240,11 +248,27 @@ class Parser {
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     Expr condition = expression();
     consume(RIGHT_PAREN, "Expect ')' after condition.");
-    Stmt body = statement();
 
-    return new Stmt.While(condition, body);
+    try {
+      loopDepth++;
+      Stmt body = statement();
+
+      return new Stmt.While(condition, body);
+    } finally {
+      loopDepth--;
+    }
   }
 //< Control Flow while-statement
+
+  //break statement
+  private Stmt breakStatement() {
+    if (loopDepth == 0) {
+      error(previous(), "Must be inside a loop to use 'break'.");
+    }
+    consume(SEMICOLON, "Expect ';' after 'break'.");
+    return new Stmt.Break();
+  }
+
 //> Statements and State parse-expression-statement
   private Stmt expressionStatement() {
     Expr expr = expression();

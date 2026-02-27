@@ -52,6 +52,12 @@ public class GenerateAst {
     defineAst(outputDir, "Stmt", Arrays.asList(
 //> block-ast
       "Block      : List<Stmt> statements",
+      "Break      : ",  // <--
+      "Expression : Expr expression",
+      "If         : Expr condition, Stmt thenBranch, Stmt elseBranch",
+      "Print      : Expr expression",
+      "Var        : Token name, Expr initializer",
+      "While      : Expr condition, Stmt body",
 //< block-ast
 /* Classes class-ast < Inheritance superclass-ast
       "Class      : Token name, List<Stmt.Function> methods",
@@ -175,10 +181,11 @@ public class GenerateAst {
     fieldList = fieldList.replace(",\n          ", ", ");
 //< omit
     // Store parameters in fields.
-    String[] fields = fieldList.split(", ");
-    for (String field : fields) {
-      String name = field.split(" ")[1];
-      writer.println("      this." + name + " = " + name + ";");
+    String[] fields;
+    if (fieldList.isEmpty()) {
+      fields = new String[0];
+    } else {
+      fields = fieldList.split(", ");
     }
 
     writer.println("    }");
