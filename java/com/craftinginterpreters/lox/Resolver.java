@@ -8,17 +8,18 @@ import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private final Interpreter interpreter;
-//> scopes-field
+
+  //declare scopes
   private final Stack<Map<String, Variable>> scopes = new Stack<>();
-//< scopes-field
-//> function-type-field
+
+  //functionType base
   private FunctionType currentFunction = FunctionType.NONE;
-//< function-type-field
+
 
   Resolver(Interpreter interpreter) {
     this.interpreter = interpreter;
   }
-//> function-type
+
   private enum FunctionType {
     NONE,
 /* Resolving and Binding function-type < Classes function-type-method
@@ -32,8 +33,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     METHOD
 //< Classes function-type-method
   }
-//< function-type
-//> Classes class-type
 
   private enum ClassType {
     NONE,
@@ -50,13 +49,16 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private static class Variable {
     final Token name;
     VariableState state;
+    final int index;
 
-    private Variable(Token name, VariableState state) {
+    private Variable(Token name, VariableState state, int index) {
       this.name = name;
       this.state = state;
+      this.index = index;
     }
   }
 
+  //variable states to check usage
   private enum VariableState {
     DECLARED,
     DEFINED,

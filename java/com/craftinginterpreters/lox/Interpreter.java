@@ -32,7 +32,7 @@ class Interpreter implements Expr.Visitor<Object>,
   private final Map<Expr, Integer> locals = new HashMap<>();
 //< Resolving and Binding locals-field
 //> Statements and State environment-field
-
+  private final Map<Expr, Integer> indexes = new HashMap<>();
 //< Statements and State environment-field
 //> Functions interpreter-constructor
 
@@ -89,8 +89,9 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 //< Statements and State execute
 //> Resolving and Binding resolve
-  void resolve(Expr expr, int depth) {
+  void resolve(Expr expr, int depth, int index) {
     locals.put(expr, depth);
+    indexes.put(expr, index);
   }
 //< Resolving and Binding resolve
 //> Statements and State execute-block
@@ -257,7 +258,7 @@ class Interpreter implements Expr.Visitor<Object>,
 
     Integer distance = locals.get(expr);
     if (distance != null) {
-      environment.assignAt(distance, expr.name, value);
+      environment.assignAt(distance, indexes.get(expr), value);
     } else {
       globals.assign(expr.name, value);
     }
@@ -494,9 +495,9 @@ class Interpreter implements Expr.Visitor<Object>,
   private Object lookUpVariable(Token name, Expr expr) {
     Integer distance = locals.get(expr);
     if (distance != null) {
-      return environment.getAt(distance, name.lexeme);
+      return environment.getAt(distance, indexes.get(expr));
     } else {
-      return globals.get(name);
+      return globals.get(name.lexeme);
     }
   }
 //< Resolving and Binding look-up-variable
