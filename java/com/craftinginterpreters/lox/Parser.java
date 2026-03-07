@@ -513,6 +513,10 @@ class Parser {
       consume(RIGHT_PAREN, "Expect ')' after expression.");
       return new Expr.Grouping(expr);
     }
+
+    if (match(FUN)) {
+      return functionBody("function");
+    }
 //> primary-error
 
     throw error(peek(), "Expect expression.");
@@ -550,6 +554,20 @@ class Parser {
     return previous();
   }
 //< advance
+  private Expr.Lambda functionBody(String kind) {
+    consume(LEFT_PAREN, "Expect '(' after " + kind + ".");
+    List<Token> parameters = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (parameters.size() >= 255) error(peek(), "Cannot have more than 255 parameters.");
+        parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+      } while (match(COMMA));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    return new Expr.Lambda(parameters, body);
+  }
 //> utils
   private boolean isAtEnd() {
     return peek().type == EOF;

@@ -379,6 +379,12 @@ class Interpreter implements Expr.Visitor<Object>,
         "Only instances have properties.");
   }
 //< Classes interpreter-visit-get
+  @Override
+  public Object visitLambdaExpr(Expr.Lambda expr) {
+    // Capture the environment where the lambda was defined
+    Environment closure = environment;
+    return new LoxFunction(expr, closure, false);
+  }
 //> visit-grouping
   @Override
   public Object visitGroupingExpr(Expr.Grouping expr) {
