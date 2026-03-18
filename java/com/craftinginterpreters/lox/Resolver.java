@@ -226,11 +226,28 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 //> visit-while-stmt
   @Override
   public Void visitWhileStmt(Stmt.While stmt) {
-    resolve(stmt.condition);
-    resolve(stmt.body);
+    while (isTruthy(evaluate(stmt.condition))) {
+      try {
+        execute(stmt.body);
+      } catch (BreakException b) {
+        break; // Exit the Java while loop
+      } catch (ContinueException c) {
+        // Do nothing; the Java loop continues to the next iteration
+        continue;
+      }
+    }
     return null;
   }
 //< visit-while-stmt
+  @Override
+  public Void visitBreakStmt(Stmt.Break stmt) {
+    throw new BreakException();
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    throw new ContinueException();
+  }
 //> visit-assign-expr
   @Override
   public Void visitAssignExpr(Expr.Assign expr) {

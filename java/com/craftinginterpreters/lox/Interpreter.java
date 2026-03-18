@@ -569,5 +569,6 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 //< stringify
 
-  private static class BreakException extends RuntimeException{}
+  class BreakException extends RuntimeException{}
+  class ContinueException extends RuntimeException {}
 }
