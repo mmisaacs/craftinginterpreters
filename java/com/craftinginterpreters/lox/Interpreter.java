@@ -373,11 +373,16 @@ class Interpreter implements Expr.Visitor<Object>,
   public Object visitGetExpr(Expr.Get expr) {
     Object object = evaluate(expr.object);
     if (object instanceof LoxInstance) {
-      return ((LoxInstance) object).get(expr.name);
+        Object value = ((LoxInstance)object).get(expr.name);
+
+        if (value instanceof LoxFunction && ((LoxFunction)value).isGetter()) {
+            return ((LoxFunction)value).call(this, new ArrayList<>());
+        }
+
+        return value;
     }
 
-    throw new RuntimeError(expr.name,
-        "Only instances have properties.");
+    throw new RuntimeError(expr.name, "Only instances have properties.");
   }
 //< Classes interpreter-visit-get
   @Override
