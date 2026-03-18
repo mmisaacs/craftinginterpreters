@@ -28,9 +28,10 @@ class LoxFunction implements LoxCallable {
     this.declaration = declaration;
   }
 //> Classes bind-instance
-  LoxFunction bind(LoxInstance instance) {
+  LoxFunction bind(LoxInstance instance, LoxFunction inner) {
     Environment environment = new Environment(closure);
     environment.define("this", instance);
+    environment.define("inner", inner);
 /* Classes bind-instance < Classes lox-function-bind-with-initializer
     return new LoxFunction(declaration, environment);
 */
@@ -54,20 +55,15 @@ class LoxFunction implements LoxCallable {
 //< function-arity
 //> function-call
   @Override
-  public Object call(Interpreter interpreter,
-                     List<Object> arguments) {
-/* Functions function-call < Functions call-closure
-    Environment environment = new Environment(interpreter.globals);
-*/
-//> call-closure
-    Environment environment = new Environment(closure);
-//< call-closure
-    if(declaration.params != null) {
-      for (int i = 0; i < declaration.params.size(); i++) {
-        environment.define(declaration.params.get(i).lexeme,
-                arguments.get(i));
-      }
+  public Object call(Interpreter interpreter, List<Object> arguments) {
+    LoxInstance instance = new LoxInstance(this);
+    LoxFunction initializer = findMethod(instance, "init");
+    if (initializer != null) {
+      initializer.call(interpreter, arguments);
     }
+
+    return instance;
+  }
 
 /* Functions function-call < Functions catch-return
     interpreter.executeBlock(declaration.body, environment);
