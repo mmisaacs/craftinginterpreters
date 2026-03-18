@@ -140,6 +140,13 @@ class Interpreter implements Expr.Visitor<Object>,
 //< Inheritance begin-superclass-environment
 //> interpret-methods
 
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
+    }
+    LoxClass metaclass = new LoxClass(null, stmt.name.lexeme + " metaclass", classMethods);
+
     Map<String, LoxFunction> methods = new HashMap<>();
     for (Stmt.Function method : stmt.methods) {
 /* Classes interpret-methods < Classes interpreter-method-initializer
@@ -156,8 +163,7 @@ class Interpreter implements Expr.Visitor<Object>,
     LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
 */
 //> Inheritance interpreter-construct-class
-    LoxClass klass = new LoxClass(stmt.name.lexeme,
-        (LoxClass)superclass, methods);
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
 //> end-superclass-environment
 
     if (superclass != null) {
