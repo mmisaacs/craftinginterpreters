@@ -148,6 +148,17 @@ class Interpreter implements Expr.Visitor<Object>,
     LoxClass metaclass = new LoxClass(null, stmt.name.lexeme + " metaclass", classMethods);
 
     Map<String, LoxFunction> methods = new HashMap<>();
+    for (Expr.Variable mixinVar : stmt.mixins) {
+      // Look up the mixin in the environment
+      LoxClass mixin = (LoxClass)evaluate(mixinVar);
+
+      // Copy all methods from the mixin into this class's map
+      for (Map.Entry<String, LoxFunction> entry : mixin.methods.entrySet()) {
+        methods.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    //override mixins if names collide
     for (Stmt.Function method : stmt.methods) {
 /* Classes interpret-methods < Classes interpreter-method-initializer
       LoxFunction function = new LoxFunction(method, environment);

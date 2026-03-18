@@ -90,6 +90,15 @@ class Parser {
     }
 
 //< Inheritance parse-superclass
+
+    List<Expr.Variable> mixins = new ArrayList<>();
+    if (match(WITH)) {
+      do {
+        consume(IDENTIFIER, "Expect mixin name.");
+        mixins.add(new Expr.Variable(previous()));
+      } while (match(COMMA));
+    }
+
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
     List<Stmt.Function> methods = new ArrayList<>();
@@ -107,6 +116,20 @@ class Parser {
 //< Inheritance construct-class-ast
   }
 //< Classes parse-class-declaration
+
+  private Stmt mixinDeclaration(){
+    Token name = consume(IDENTIFIER, "Expect mixin name.");
+    consume(LEFT_BRACE, "Expect '{' before mixin body.");
+
+    List<Stmt.Function> methods = new ArrayList<>();
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+      methods.add(function("method"));
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after mixin body.");
+    return new Stmt.Mixin(name, methods);
+  }
+
 //> Statements and State parse-statement
   private Stmt statement() {
 //> Control Flow match-for
