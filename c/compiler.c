@@ -36,6 +36,7 @@ typedef struct {
 typedef enum {
   PREC_NONE,
   PREC_ASSIGNMENT,  // =
+  PREC_TERNARY,     // ?
   PREC_OR,          // or
   PREC_AND,         // and
   PREC_EQUALITY,    // == !=
@@ -974,6 +975,7 @@ ParseRule rules[] = {
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ERROR]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_QUESTION]      = {NULL,     ternary, PREC_TERNARY},
 };
 //< Compiling Expressions rules
 //> Compiling Expressions parse-precedence
@@ -1304,6 +1306,13 @@ static void ifStatement() {
 //< patch-else
 }
 //< Jumping Back and Forth if-statement
+
+static void ternary()
+{
+  parsePrecedence(compiler, PREC_TERNARY);
+  consume(compiler, TOKEN_COLON, "Expect ':' after ternary condition.");
+  parsePrecedence(compiler, PREC_ASSIGNMENT);
+}
 //> Global Variables print-statement
 static void printStatement() {
   expression();
