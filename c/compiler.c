@@ -1306,7 +1306,6 @@ static void ifStatement() {
 //< patch-else
 }
 //< Jumping Back and Forth if-statement
-
 static void ternary()
 {
   parsePrecedence(compiler, PREC_TERNARY);
