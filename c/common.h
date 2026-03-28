@@ -36,3 +36,12 @@
 #undef DEBUG_STRESS_GC
 #undef DEBUG_LOG_GC
 //< omit
+typedef struct Block {
+	size_t size;        // Size of this data block
+	bool isFree;        // Is it available?
+	struct Block* next; // Next block in our big slab
+} Block;
+
+static uint8_t* globalHeap = NULL;
+static Block* freeList = NULL;
+#define HEAP_SIZE 1024 * 1024 // 1MB personal heap

@@ -21,33 +21,41 @@
 //< Garbage Collection heap-grow-factor
 
 void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
-//> Garbage Collection updated-bytes-allocated
-  vm.bytesAllocated += newSize - oldSize;
-//< Garbage Collection updated-bytes-allocated
-//> Garbage Collection call-collect
-  if (newSize > oldSize) {
-#ifdef DEBUG_STRESS_GC
-    collectGarbage();
-#endif
-//> collect-on-next
-
-    if (vm.bytesAllocated > vm.nextGC) {
-      collectGarbage();
-    }
-//< collect-on-next
-  }
-
-//< Garbage Collection call-collect
   if (newSize == 0) {
-    free(pointer);
-    return NULL;
+      if (pointer != NULL) {
+          // MARK AS FREE
+          Block* header = (Block*)((uint8_t*)pointer - sizeof(Block));
+          header->isFree = true;
+          // Optional: Coalesce neighbors here to prevent fragmentation
+      }
+      return NULL;
   }
 
-  void* result = realloc(pointer, newSize);
-//> out-of-memory
-  if (result == NULL) exit(1);
-//< out-of-memory
+  // ALLOCATE OR GROW
+  if (pointer == NULL) {
+      // Find a free block (First Fit)
+      Block* current = freeList;
+      while (current != NULL) {
+          if (current->isFree && current->size >= newSize) {
+              // Potential optimization: Split block if it's way too big
+              current->isFree = false;
+              return (void*)((uint8_t*)current + sizeof(Block));
+          }
+          current = current->next;
+      }
+      return NULL; // Out of personal memory!
+  }
+
+  // REALLOCATE (SIMPLIFIED)
+  // In a real system, you'd check if the next block is free to expand.
+  // Here, we'll just alloc new, copy, and free old.
+  void* result = reallocate(NULL, 0, newSize);
+  if (result == NULL) return NULL;
+
+  memcpy(result, pointer, oldSize < newSize ? oldSize : newSize);
+  reallocate(pointer, oldSize, 0);
   return result;
+}
 }
 //> Garbage Collection mark-object
 void markObject(Obj* object) {
