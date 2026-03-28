@@ -103,6 +103,10 @@ typedef enum {
 } OpCode;
 //< op-enum
 //> chunk-struct
+typedef struct {
+  int count;  // num of instructions
+  int line;   // num of lines
+} LineRun;
 
 typedef struct {
 //> count-and-capacity
@@ -116,6 +120,9 @@ typedef struct {
 //> chunk-constants
   ValueArray constants;
 //< chunk-constants
+  int lineCount;
+  int lineCapacity;
+  LineRun* lines;
 } Chunk;
 //< chunk-struct
 //> init-chunk-h

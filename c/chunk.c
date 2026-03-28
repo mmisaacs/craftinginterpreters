@@ -49,12 +49,23 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
         oldCapacity, chunk->capacity);
 //< write-chunk-line
   }
-
   chunk->code[chunk->count] = byte;
-//> chunk-write-line
-  chunk->lines[chunk->count] = line;
-//< chunk-write-line
-  chunk->count++;
+  // check if we're on the same line
+  if (chunk->lineCount > 0 && chunk->lines[chunk->lineCount - 1].line == line) {
+    chunk->lines[chunk->lineCount - 1].count++;
+  } else {
+    // New line or first instruction: Add a new LineRun
+    if (chunk->lineCapacity < chunk->lineCount + 1) {
+      int oldCapacity = chunk->lineCapacity;
+      chunk->lineCapacity = GROW_CAPACITY(oldCapacity);
+      chunk->lines = GROW_ARRAY(LineRun, chunk->lines, oldCapacity, chunk->lineCapacity);
+    }
+    //> chunk-write-line
+    chunk->lines[chunk->lineCount].line = line;
+    chunk->lines[chunk->lineCount].count = 1;
+    //< chunk-write-line
+    chunk->lineCount++;
+  }
 }
 //< write-chunk
 //> add-constant
@@ -69,3 +80,16 @@ int addConstant(Chunk* chunk, Value value) {
   return chunk->constants.count - 1;
 }
 //< add-constant
+int getLine(Chunk* chunk, int instructionIndex) {
+  int offset = 0;
+
+  for (int i = 0; i < chunk->lineCount; i++) {
+    offset += chunk->lines[i].count;
+    // If the combined count of all runs so far exceeds our index,
+    // we've found the run containing this instruction.
+    if (instructionIndex < offset) {
+      return chunk->lines[i].line;
+    }
+  }
+  return -1; // Should not happen if index is valid
+}
