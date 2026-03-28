@@ -93,3 +93,22 @@ int getLine(Chunk* chunk, int instructionIndex) {
   }
   return -1; // Should not happen if index is valid
 }
+
+void writeConstant(Chunk* chunk, Value value, int line) {
+  int index = addConstant(chunk, value);
+
+  if (index < 256) {
+    // Standard path: 1-byte operand
+    writeChunk(chunk, OP_CONSTANT, line);
+    writeChunk(chunk, (uint8_t)index, line);
+  } else {
+    // Long path: 3-byte (24-bit) operand
+    writeChunk(chunk, OP_CONSTANT_LONG, line);
+
+    // We break the 24-bit integer into three 8-bit bytes
+    // Using bit-shifting to isolate each byte:
+    writeChunk(chunk, (uint8_t)(index & 0xff), line);         // Low byte
+    writeChunk(chunk, (uint8_t)((index >> 8) & 0xff), line);  // Middle byte
+    writeChunk(chunk, (uint8_t)((index >> 16) & 0xff), line); // High byte
+  }
+}

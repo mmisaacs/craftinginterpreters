@@ -487,6 +487,13 @@ static InterpretResult run() {
 //< push-constant
         break;
       }
+    case OP_CONSTANT_LONG: {
+      // Read 24-bit index (same logic as disassembler)
+      uint32_t index = READ_BYTE() | (READ_BYTE() << 8) | (READ_BYTE() << 16);
+      Value constant = chunk->constants.values[index];
+      push(constant);
+      break;
+    }
 //< op-constant
 //> Types of Values interpret-literals
       case OP_NIL: push(NIL_VAL); break;
