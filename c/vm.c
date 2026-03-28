@@ -651,9 +651,9 @@ static InterpretResult run() {
       case OP_MULTIPLY: BINARY_OP(*); break;
       case OP_DIVIDE:   BINARY_OP(/); break;
 */
-/* A Virtual Machine op-negate < Types of Values op-negate
-      case OP_NEGATE:   push(-pop()); break;
-*/
+// A Virtual Machine op-negate < Types of Values op-negate
+      case OP_NEGATE:   vm.stackTop[-1] = -vm.stackTop[-1]; break;
+//
 /* Types of Values op-arithmetic < Strings add-strings
       case OP_ADD:      BINARY_OP(NUMBER_VAL, +); break;
 */
@@ -689,7 +689,8 @@ static InterpretResult run() {
           runtimeError("Operand must be a number.");
           return INTERPRET_RUNTIME_ERROR;
         }
-        push(NUMBER_VAL(-AS_NUMBER(pop())));
+      // access the top of stack directly
+        vm.stackTop[-1] = NUMBER_VAL(-AS_NUMBER(vm.stackTop[-1]));
         break;
 //< Types of Values op-negate
 //> Global Variables interpret-print
