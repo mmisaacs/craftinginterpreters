@@ -165,6 +165,13 @@ typedef struct {
 
 typedef struct {
   Obj obj;
+  int length;
+  uint32_t hash;
+  char chars[];
+} ObjString;
+
+typedef struct {
+  Obj obj;
   ObjClass* klass;
   Table fields; // [fields]
 } ObjInstance;
