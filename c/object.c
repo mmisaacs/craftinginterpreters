@@ -153,6 +153,33 @@ ObjString* copyString(const char* chars, int length) {
   return string;
 }
 
+ObjString* newConstantString(const char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
+  if (interned != NULL) return interned;
+
+  ObjString* string = allocateObj(sizeof(ObjString), OBJ_STRING);
+  string->length = length;
+  string->hash = hash;
+  string->chars = chars;
+  string->isOwned = false;
+
+  tableSet(&vm.strings, string, NIL_VAL);
+  return string;
+}
+
+ObjString* takeString(char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* string = allocateObj(sizeof(ObjString), OBJ_STRING);
+  string->chars = chars;
+  string->isOwned = true;
+
+  tableSet(&vm.strings, string, NIL_VAL);
+  return string;''
+}
+
 //> Closures new-upvalue
 ObjUpvalue* newUpvalue(Value* slot) {
   ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);

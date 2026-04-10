@@ -167,6 +167,7 @@ typedef struct {
   Obj obj;
   int length;
   uint32_t hash;
+  bool isOwned;
   char chars[];
 } ObjString;
 
