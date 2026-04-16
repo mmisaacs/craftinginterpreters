@@ -21,6 +21,16 @@ void freeTable(Table* table) {
   FREE_ARRAY(Entry, table->entries, table->capacity);
   initTable(table);
 }
+
+static uint32_t hashValue(Value value) {
+  switch (value.type) {
+  case VAL_BOOL:   return AS_BOOL(value) ? 3 : 5;
+  case VAL_NIL:    return 7;
+  case VAL_NUMBER: return hashDouble(AS_NUMBER(value));
+  case VAL_OBJ:    return AS_OBJ(value)->hash;
+  default:         return 0;
+  }
+}
 //< free-table
 //> find-entry
 //> omit
@@ -28,11 +38,9 @@ void freeTable(Table* table) {
 // If you change it here, make sure to update that copy.
 //< omit
 static Entry* findEntry(Entry* entries, int capacity,
-                        ObjString* key) {
-/* Hash Tables find-entry < Optimization initial-index
-  uint32_t index = key->hash % capacity;
-*/
+                        Valey key) {
 //> Optimization initial-index
+  uint32_t hash = hashValue(key);
   uint32_t index = key->hash & (capacity - 1);
 //< Optimization initial-index
 //> find-entry-tombstone
@@ -41,13 +49,9 @@ static Entry* findEntry(Entry* entries, int capacity,
 //< find-entry-tombstone
   for (;;) {
     Entry* entry = &entries[index];
-/* Hash Tables find-entry < Hash Tables find-tombstone
-    if (entry->key == key || entry->key == NULL) {
-      return entry;
-    }
-*/
+
 //> find-tombstone
-    if (entry->key == NULL) {
+    if (IS_EMPTY(entry->key)) {
       if (IS_NIL(entry->value)) {
         // Empty entry.
         return tombstone != NULL ? tombstone : entry;
@@ -55,18 +59,13 @@ static Entry* findEntry(Entry* entries, int capacity,
         // We found a tombstone.
         if (tombstone == NULL) tombstone = entry;
       }
-    } else if (entry->key == key) {
+    } else if (valuesEqual(entry->key, key)) {
       // We found the key.
       return entry;
     }
 //< find-tombstone
-
-/* Hash Tables find-entry < Optimization next-index
-    index = (index + 1) % capacity;
-*/
 //> Optimization next-index
     index = (index + 1) & (capacity - 1);
-//< Optimization next-index
   }
 }
 //< find-entry
@@ -85,7 +84,7 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
 static void adjustCapacity(Table* table, int capacity) {
   Entry* entries = ALLOCATE(Entry, capacity);
   for (int i = 0; i < capacity; i++) {
-    entries[i].key = NULL;
+    entries[i].key = EMPTY_VAL;
     entries[i].value = NIL_VAL;
   }
 //> re-hash
@@ -211,3 +210,11 @@ void markTable(Table* table) {
   }
 }
 //< Garbage Collection mark-table
+static uint32_t hashDouble(double value) {
+  union {
+    double d;
+    uint32_t i[2];
+  } cast;
+  cast.d = value;
+  return cast.i[0] ^ cast.i[1];
+}
