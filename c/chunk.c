@@ -70,13 +70,14 @@ void writeChunk(Chunk* chunk, uint8_t byte, int line) {
 //< write-chunk
 //> add-constant
 int addConstant(Chunk* chunk, Value value) {
-//> Garbage Collection add-constant-push
-  push(value);
-//< Garbage Collection add-constant-push
+  for (int i = 0; i < chunk->constants.count; i++) {
+    //if the constant is found, will return the value
+    if (valuesEqual(chunk->constants.values[i], value)) {
+      return i;
+    }
+  }
+
   writeValueArray(&chunk->constants, value);
-//> Garbage Collection add-constant-pop
-  pop();
-//< Garbage Collection add-constant-pop
   return chunk->constants.count - 1;
 }
 //< add-constant
