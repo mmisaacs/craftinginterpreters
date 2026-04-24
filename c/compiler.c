@@ -73,6 +73,7 @@ typedef struct {
 //> Closures is-captured-field
   bool isCaptured;
 //< Closures is-captured-field
+  bool isConst;
 } Local;
 //< Local Variables local-struct
 //> Closures upvalue-struct
@@ -725,9 +726,12 @@ static void namedVariable(Token name, bool canAssign) {
 //> Local Variables named-local
   uint8_t getOp, setOp;
   int arg = resolveLocal(current, &name);
+  bool isConstant = false;
+
   if (arg != -1) {
     getOp = OP_GET_LOCAL;
     setOp = OP_SET_LOCAL;
+    isConstant = current->locals[arg].isConstant;
 //> Closures named-variable-upvalue
   } else if ((arg = resolveUpvalue(current, &name)) != -1) {
     getOp = OP_GET_UPVALUE;
@@ -737,6 +741,16 @@ static void namedVariable(Token name, bool canAssign) {
     arg = identifierConstant(&name);
     getOp = OP_GET_GLOBAL;
     setOp = OP_SET_GLOBAL;
+  }
+
+  if (canAssign && match(TOKEN_EQUAL)) {
+    if (isConstant){
+      error("Cannot assign to a constant variable");
+    }
+    expression();
+    emitBytes(OP_SET_GLOBAL, getOp);
+  } else {
+    emitBytes(OP_SET_GLOBAL, getOp);
   }
 //< Local Variables named-local
 /* Global Variables read-named-variable < Global Variables named-variable
@@ -1530,3 +1544,17 @@ void markCompilerRoots() {
   }
 }
 //< Garbage Collection mark-compiler-roots
+// declare const as a keyword
+// variable must be initiallized if it is declared as const
+static void constDeclaration() {
+  uint8_t global = parseVariable("Expect variable name.");
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    error("Constants must be initialized.");
+  }
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global, true); // Pass 'true' for isConst
+}
