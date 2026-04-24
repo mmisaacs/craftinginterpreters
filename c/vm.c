@@ -868,6 +868,9 @@ static InterpretResult run() {
         defineMethod(READ_STRING());
         break;
 //< Methods and Initializers interpret-method
+      case OP_DUP:
+        push(peek(0));
+        break;
     }
   }
 
