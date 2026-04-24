@@ -26,6 +26,8 @@ typedef enum {
 //> Local Variables set-local-op
   OP_SET_LOCAL,
 //< Local Variables set-local-op
+  OP_GET_LOCAL_LONG,
+  OP_SET_LOCAL_LONG,
 //> Global Variables get-global-op
   OP_GET_GLOBAL,
 //< Global Variables get-global-op

@@ -108,10 +108,10 @@ typedef struct Compiler {
   FunctionType type;
 
 //< Calls and Functions function-fields
-  Local locals[UINT8_COUNT];
+  Local locals[MAX_LOCALS];
   int localCount;
 //> Closures upvalues-array
-  Upvalue upvalues[UINT8_COUNT];
+  Upvalue upvalues[MAX_LOCALS];
 //< Closures upvalues-array
   int scopeDepth;
 } Compiler;
@@ -456,7 +456,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index,
 
 //< existing-upvalue
 //> too-many-upvalues
-  if (upvalueCount == UINT8_COUNT) {
+  if (upvalueCount == MAX_LOCALS) {
     error("Too many closure variables in function.");
     return 0;
   }
@@ -492,7 +492,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 //> Local Variables add-local
 static void addLocal(Token name) {
 //> too-many-locals
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == MAX_LOCALS) {
     error("Too many local variables in function.");
     return;
   }
@@ -509,6 +509,7 @@ static void addLocal(Token name) {
 //> Closures init-is-captured
   local->isCaptured = false;
 //< Closures init-is-captured
+  local->isConstant = false;
 }
 //< Local Variables add-local
 //> Local Variables declare-variable
@@ -729,8 +730,13 @@ static void namedVariable(Token name, bool canAssign) {
   bool isConstant = false;
 
   if (arg != -1) {
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
+    if (arg <= 255) {
+      getOp = OP_GET_LOCAL;
+      setOp = OP_SET_LOCAL;
+    } else {
+      getOp = OP_GET_LOCAL_LONG;
+      setOp = OP_SET_LOCAL_LONG;
+    }
     isConstant = current->locals[arg].isConstant;
 //> Closures named-variable-upvalue
   } else if ((arg = resolveUpvalue(current, &name)) != -1) {
@@ -741,16 +747,6 @@ static void namedVariable(Token name, bool canAssign) {
     arg = identifierConstant(&name);
     getOp = OP_GET_GLOBAL;
     setOp = OP_SET_GLOBAL;
-  }
-
-  if (canAssign && match(TOKEN_EQUAL)) {
-    if (isConstant){
-      error("Cannot assign to a constant variable");
-    }
-    expression();
-    emitBytes(OP_SET_GLOBAL, getOp);
-  } else {
-    emitBytes(OP_SET_GLOBAL, getOp);
   }
 //< Local Variables named-local
 /* Global Variables read-named-variable < Global Variables named-variable
@@ -763,21 +759,29 @@ static void namedVariable(Token name, bool canAssign) {
 */
 //> named-variable-can-assign
   if (canAssign && match(TOKEN_EQUAL)) {
+    if (isConstant){
+      error("Cannot assign to a constant variable");
+    }
 //< named-variable-can-assign
     expression();
 /* Global Variables named-variable < Local Variables emit-set
     emitBytes(OP_SET_GLOBAL, arg);
 */
 //> Local Variables emit-set
-    emitBytes(setOp, (uint8_t)arg);
-//< Local Variables emit-set
+    if (arg <= 255) {
+      emitBytes(setOp, (uint8_t)arg);
+    } else {
+      emitByte(setOp);
+      emit24BitOperand(arg); // Helper function to emit 3 bytes
+    }
   } else {
-/* Global Variables named-variable < Local Variables emit-get
-    emitBytes(OP_GET_GLOBAL, arg);
-*/
-//> Local Variables emit-get
-    emitBytes(getOp, (uint8_t)arg);
-//< Local Variables emit-get
+    // Emit the getter
+    if (arg <= 255) {
+      emitBytes(getOp, (uint8_t)arg);
+    } else {
+      emitByte(getOp);
+      emit24BitOperand(arg);
+    }
   }
 //< named-variable
 }
@@ -1557,4 +1561,12 @@ static void constDeclaration() {
   consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
 
   defineVariable(global, true); // Pass 'true' for isConst
+}
+
+//helper function for increasing the amount of local variables
+//increases the operand to the chunk
+static void emit24BitOperand(int arg) {
+  emitByte((uint8_t)(arg & 0xff));         // Low byte
+  emitByte((uint8_t)((arg >> 8) & 0xff));  // Middle byte
+  emitByte((uint8_t)((arg >> 16) & 0xff)); // High byte
 }

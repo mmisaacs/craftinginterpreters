@@ -25,6 +25,12 @@
 //< Strings vm-include-object-memory
 #include "vm.h"
 
+#define READ_BYTE() (*vm.ip++)
+
+#define READ_24BIT() \
+  (vm.ip += 3, \
+  (uint32_t)(vm.ip[-3] | (vm.ip[-2] << 8) | (vm.ip[-1] << 16)))
+
 VM vm; // [one]
 //> Calls and Functions clock-native
 static Value clockNative(int argCount, Value* args) {
@@ -527,6 +533,16 @@ static InterpretResult run() {
         break;
       }
 //< Local Variables interpret-set-local
+      case OP_GET_LOCAL_LONG: {
+            uint32_t slot = READ_24BIT();
+            push(vm.stack[slot]);
+            break;
+      }
+      case OP_SET_LOCAL_LONG: {
+            uint32_t slot = READ_24BIT();
+            vm.stack[slot] = peek(0);
+            break;
+      }
 //> Global Variables interpret-get-global
       case OP_GET_GLOBAL: {
         ObjString* name = READ_STRING();
