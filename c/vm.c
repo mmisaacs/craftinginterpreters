@@ -530,18 +530,20 @@ static InterpretResult run() {
 //> Calls and Functions set-local
         frame->slots[slot] = peek(0);
 //< Calls and Functions set-local
+        checkWatchers();
         break;
       }
 //< Local Variables interpret-set-local
       case OP_GET_LOCAL_LONG: {
-            uint32_t slot = READ_24BIT();
-            push(vm.stack[slot]);
-            break;
+          uint32_t slot = READ_24BIT();
+          push(vm.stack[slot]);
+          break;
       }
       case OP_SET_LOCAL_LONG: {
-            uint32_t slot = READ_24BIT();
-            vm.stack[slot] = peek(0);
-            break;
+          uint32_t slot = READ_24BIT();
+          vm.stack[slot] = peek(0);
+          checkWatchers();
+          break;
       }
 //> Global Variables interpret-get-global
       case OP_GET_GLOBAL: {
@@ -571,6 +573,7 @@ static InterpretResult run() {
           runtimeError("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
+        checkWatchers();
         break;
       }
 //< Global Variables interpret-set-global
@@ -585,6 +588,7 @@ static InterpretResult run() {
       case OP_SET_UPVALUE: {
         uint8_t slot = READ_BYTE();
         *frame->closure->upvalues[slot]->location = peek(0);
+        checkWatchers();
         break;
       }
 //< Closures interpret-set-upvalue
@@ -635,6 +639,7 @@ static InterpretResult run() {
         Value value = pop();
         pop();
         push(value);
+        checkWatchers();
         break;
       }
 //< Classes and Instances interpret-set-property
@@ -871,6 +876,12 @@ static InterpretResult run() {
       case OP_DUP:
         push(peek(0));
         break;
+
+      case OP_RESUME: {
+          vm.ip = vm.interruptedIp;
+          vm.isHandlingWatcher = false;
+          break;
+        }
     }
   }
 
@@ -958,3 +969,20 @@ InterpretResult interpret(const char* source) {
 //< Compiling Expressions interpret-chunk
 }
 //< interpret
+
+void checkWatchers() {
+  for (int i = 0; i < vm.watcherCount; i++) {
+    Watcher* w = &vm.watchers[i];
+    //if not hit yet, ignore iteration
+    if (w->isActive) continue;
+
+    Value result = runConditionChunk(&w->condition);
+
+    //if watch is found, discontinue for loop
+    if (asBool(result)) {
+      w->isActive = true;
+      executeHandler(w->handlerAddress);
+      w->isActive = false;
+    }
+  }
+}

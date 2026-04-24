@@ -392,6 +392,8 @@ static void endScope() {
 //> Closures end-scope
     if (current->locals[current->localCount - 1].isCaptured) {
       emitByte(OP_CLOSE_UPVALUE);
+    } else if (current->locals[current->localCount - 1].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
     } else {
       emitByte(OP_POP);
     }
@@ -1618,4 +1620,26 @@ static void switchStatement() {
 
   consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch body.");
   emitByte(OP_POP);
+}
+
+static void wheneverStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'whenever'.");
+  //Compile condition
+  int conditionStart = currentChunk()->count;
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  emitByte(OP_RETURN_WATCHER);
+
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before whenever body.");
+
+  int jumpToEnd = emitJump(OP_JUMP);
+  int handlerStart = currentChunk()->count;
+
+  statement();
+  emitByte(OP_RESUME);
+
+  patchJump(jumpToEnd);
+
+  // reregister watch
+  emitByte(OP_REGISTER_WATCHER);
 }
