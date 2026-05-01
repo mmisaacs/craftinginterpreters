@@ -32,9 +32,13 @@ class Interpreter implements Expr.Visitor<Object>,
   private final Map<Expr, Integer> locals = new HashMap<>();
 //< Resolving and Binding locals-field
 //> Statements and State environment-field
-
+  private final Map<Expr, Integer> indexes = new HashMap<>();
 //< Statements and State environment-field
 //> Functions interpreter-constructor
+
+  // initalize object when a variable isn't initalized
+  private static Object unititalized = new Object();
+
   Interpreter() {
     globals.define("clock", new LoxCallable() {
       @Override
@@ -52,16 +56,17 @@ class Interpreter implements Expr.Visitor<Object>,
   }
   
 //< Functions interpreter-constructor
-/* Evaluating Expressions interpret < Statements and State interpret
-  void interpret(Expr expression) { // [void]
+// Evaluating Expressions interpret < Statements and State interpret
+  String interpret(Expr expression) { // [void]
     try {
       Object value = evaluate(expression);
-      System.out.println(stringify(value));
+      return (stringify(value));
     } catch (RuntimeError error) {
       Lox.runtimeError(error);
+      return null;
     }
   }
-*/
+
 //> Statements and State interpret
   void interpret(List<Stmt> statements) {
     try {
@@ -84,8 +89,9 @@ class Interpreter implements Expr.Visitor<Object>,
   }
 //< Statements and State execute
 //> Resolving and Binding resolve
-  void resolve(Expr expr, int depth) {
+  void resolve(Expr expr, int depth, int index) {
     locals.put(expr, depth);
+    indexes.put(expr, index);
   }
 //< Resolving and Binding resolve
 //> Statements and State execute-block
@@ -134,7 +140,25 @@ class Interpreter implements Expr.Visitor<Object>,
 //< Inheritance begin-superclass-environment
 //> interpret-methods
 
+    Map<String, LoxFunction> classMethods = new HashMap<>();
+    for (Stmt.Function method : stmt.classMethods) {
+      LoxFunction function = new LoxFunction(method, environment, false);
+      classMethods.put(method.name.lexeme, function);
+    }
+    LoxClass metaclass = new LoxClass(null, stmt.name.lexeme + " metaclass", classMethods);
+
     Map<String, LoxFunction> methods = new HashMap<>();
+    for (Expr.Variable mixinVar : stmt.mixins) {
+      // Look up the mixin in the environment
+      LoxClass mixin = (LoxClass)evaluate(mixinVar);
+
+      // Copy all methods from the mixin into this class's map
+      for (Map.Entry<String, LoxFunction> entry : mixin.methods.entrySet()) {
+        methods.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    //override mixins if names collide
     for (Stmt.Function method : stmt.methods) {
 /* Classes interpret-methods < Classes interpreter-method-initializer
       LoxFunction function = new LoxFunction(method, environment);
@@ -150,8 +174,7 @@ class Interpreter implements Expr.Visitor<Object>,
     LoxClass klass = new LoxClass(stmt.name.lexeme, methods);
 */
 //> Inheritance interpreter-construct-class
-    LoxClass klass = new LoxClass(stmt.name.lexeme,
-        (LoxClass)superclass, methods);
+    LoxClass klass = new LoxClass(metaclass, stmt.name.lexeme, methods);
 //> end-superclass-environment
 
     if (superclass != null) {
@@ -252,7 +275,7 @@ class Interpreter implements Expr.Visitor<Object>,
 
     Integer distance = locals.get(expr);
     if (distance != null) {
-      environment.assignAt(distance, expr.name, value);
+      environment.assignAt(distance, indexes.get(expr), value);
     } else {
       globals.assign(expr.name, value);
     }
@@ -367,13 +390,24 @@ class Interpreter implements Expr.Visitor<Object>,
   public Object visitGetExpr(Expr.Get expr) {
     Object object = evaluate(expr.object);
     if (object instanceof LoxInstance) {
-      return ((LoxInstance) object).get(expr.name);
+        Object value = ((LoxInstance)object).get(expr.name);
+
+        if (value instanceof LoxFunction && ((LoxFunction)value).isGetter()) {
+            return ((LoxFunction)value).call(this, new ArrayList<>());
+        }
+
+        return value;
     }
 
-    throw new RuntimeError(expr.name,
-        "Only instances have properties.");
+    throw new RuntimeError(expr.name, "Only instances have properties.");
   }
 //< Classes interpreter-visit-get
+  @Override
+  public Object visitLambdaExpr(Expr.Lambda expr) {
+    // Capture the environment where the lambda was defined
+    Environment closure = environment;
+    return new LoxFunction(expr, closure, false);
+  }
 //> visit-grouping
   @Override
   public Object visitGroupingExpr(Expr.Grouping expr) {
@@ -471,20 +505,21 @@ class Interpreter implements Expr.Visitor<Object>,
 //> Statements and State visit-variable
   @Override
   public Object visitVariableExpr(Expr.Variable expr) {
-/* Statements and State visit-variable < Resolving and Binding call-look-up-variable
-    return environment.get(expr.name);
-*/
-//> Resolving and Binding call-look-up-variable
-    return lookUpVariable(expr.name, expr);
-//< Resolving and Binding call-look-up-variable
+  //Statements and State visit-variable < Resolving and Binding call-look-up-variable
+    Object value = environment.get(expr.name);
+
+    if(value == unititalized){
+      throw new RuntimeError(expr.name, "Variable must be initialized before use.");
+    }
+    return value;
   }
 //> Resolving and Binding look-up-variable
   private Object lookUpVariable(Token name, Expr expr) {
     Integer distance = locals.get(expr);
     if (distance != null) {
-      return environment.getAt(distance, name.lexeme);
+      return environment.getAt(distance, indexes.get(expr));
     } else {
-      return globals.get(name);
+      return globals.get(name.lexeme);
     }
   }
 //< Resolving and Binding look-up-variable
@@ -533,4 +568,7 @@ class Interpreter implements Expr.Visitor<Object>,
     return object.toString();
   }
 //< stringify
+
+  class BreakException extends RuntimeException{}
+  class ContinueException extends RuntimeException {}
 }

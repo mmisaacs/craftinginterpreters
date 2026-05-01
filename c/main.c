@@ -79,6 +79,7 @@ static void runFile(const char* path) {
 //< Scanning on Demand run-file
 
 int main(int argc, const char* argv[]) {
+  initHeap();
 //> A Virtual Machine main-init-vm
   initVM();
 

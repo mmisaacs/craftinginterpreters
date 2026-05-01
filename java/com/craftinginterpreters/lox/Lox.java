@@ -49,14 +49,27 @@ public class Lox {
     InputStreamReader input = new InputStreamReader(System.in);
     BufferedReader reader = new BufferedReader(input);
 
-    for (;;) { // [repl]
-      System.out.print("> ");
-      String line = reader.readLine();
-      if (line == null) break;
-      run(line);
-//> reset-had-error
+    for (;;) {
       hadError = false;
-//< reset-had-error
+
+      System.out.print("> ");
+      Scanner scanner = new Scanner(reader.readLine());
+      List<Token> tokens = scanner.scanTokens();
+
+      Parser parser = new Parser(tokens);
+      Object syntax = parser.parseRepl();
+
+      // Ignore it if there was a syntax error.
+      if (hadError) continue;
+
+      if (syntax instanceof List) {
+        interpreter.interpret((List<Stmt>)syntax);
+      } else if (syntax instanceof Expr) {
+        String result = interpreter.interpret((Expr)syntax);
+        if (result != null) {
+          System.out.println("= " + result);
+        }
+      }
     }
   }
 //< prompt
@@ -73,16 +86,23 @@ public class Lox {
 */
 //> Parsing Expressions print-ast
     Parser parser = new Parser(tokens);
-/* Parsing Expressions print-ast < Statements and State parse-statements
-    Expr expression = parser.parse();
-*/
-//> Statements and State parse-statements
-    List<Stmt> statements = parser.parse();
-//< Statements and State parse-statements
+// Parsing Expressions print-ast < Statements and State parse-statements
+    Expr expression = parser.parseExpression();
 
-    // Stop if there was a syntax error.
-    if (hadError) return;
+// If it's a valid expression and we've consumed all tokens
+    if (expression != null && parser.isAtEnd()) {
+      Object result = interpreter.evaluate(expression);
+      System.out.println(interpreter.stringify(result));
+    } else {
+      // if parscing failed or more text
+      // reset the parser and try to parse it as a statement list.
+      parser = new Parser(tokens);
+      List<Stmt> statements = parser.parse();
 
+      if (hadError) return; // Stop if there are syntax errors
+
+      interpreter.interpret(statements);
+    }
 //< Parsing Expressions print-ast
 //> Resolving and Binding create-resolver
     Resolver resolver = new Resolver(interpreter);

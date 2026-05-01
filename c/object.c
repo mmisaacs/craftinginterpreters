@@ -142,46 +142,44 @@ static uint32_t hashString(const char* key, int length) {
   return hash;
 }
 //< Hash Tables hash-string
-//> take-string
-ObjString* takeString(char* chars, int length) {
-/* Strings take-string < Hash Tables take-string-hash
-  return allocateString(chars, length);
-*/
-//> Hash Tables take-string-hash
-  uint32_t hash = hashString(chars, length);
-//> take-string-intern
-  ObjString* interned = tableFindString(&vm.strings, chars, length,
-                                        hash);
-  if (interned != NULL) {
-    FREE_ARRAY(char, chars, length + 1);
-    return interned;
-  }
 
-//< take-string-intern
-  return allocateString(chars, length, hash);
-//< Hash Tables take-string-hash
-}
-//< take-string
+// add chars to an array to make string
 ObjString* copyString(const char* chars, int length) {
-//> Hash Tables copy-string-hash
+  ObjString* string = makeString(length);
+
+  memcpy(string->chars, chars, length);
+  string->chars[length] = '\0';
+
+  return string;
+}
+
+ObjString* newConstantString(const char* chars, int length) {
   uint32_t hash = hashString(chars, length);
-//> copy-string-intern
-  ObjString* interned = tableFindString(&vm.strings, chars, length,
-                                        hash);
+
+  ObjString* interned = tableFindString(&vm.strings, chars, length, hash);
   if (interned != NULL) return interned;
 
-//< copy-string-intern
-//< Hash Tables copy-string-hash
-  char* heapChars = ALLOCATE(char, length + 1);
-  memcpy(heapChars, chars, length);
-  heapChars[length] = '\0';
-/* Strings object-c < Hash Tables copy-string-allocate
-  return allocateString(heapChars, length);
-*/
-//> Hash Tables copy-string-allocate
-  return allocateString(heapChars, length, hash);
-//< Hash Tables copy-string-allocate
+  ObjString* string = allocateObj(sizeof(ObjString), OBJ_STRING);
+  string->length = length;
+  string->hash = hash;
+  string->chars = chars;
+  string->isOwned = false;
+
+  tableSet(&vm.strings, string, NIL_VAL);
+  return string;
 }
+
+ObjString* takeString(char* chars, int length) {
+  uint32_t hash = hashString(chars, length);
+
+  ObjString* string = allocateObj(sizeof(ObjString), OBJ_STRING);
+  string->chars = chars;
+  string->isOwned = true;
+
+  tableSet(&vm.strings, string, NIL_VAL);
+  return string;''
+}
+
 //> Closures new-upvalue
 ObjUpvalue* newUpvalue(Value* slot) {
   ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);

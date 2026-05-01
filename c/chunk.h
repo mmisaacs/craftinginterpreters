@@ -26,6 +26,8 @@ typedef enum {
 //> Local Variables set-local-op
   OP_SET_LOCAL,
 //< Local Variables set-local-op
+  OP_GET_LOCAL_LONG,
+  OP_SET_LOCAL_LONG,
 //> Global Variables get-global-op
   OP_GET_GLOBAL,
 //< Global Variables get-global-op
@@ -103,6 +105,10 @@ typedef enum {
 } OpCode;
 //< op-enum
 //> chunk-struct
+typedef struct {
+  int count;  // num of instructions
+  int line;   // num of lines
+} LineRun;
 
 typedef struct {
 //> count-and-capacity
@@ -116,6 +122,9 @@ typedef struct {
 //> chunk-constants
   ValueArray constants;
 //< chunk-constants
+  int lineCount;
+  int lineCapacity;
+  LineRun* lines;
 } Chunk;
 //< chunk-struct
 //> init-chunk-h

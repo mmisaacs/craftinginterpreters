@@ -63,6 +63,19 @@ static int jumpInstruction(const char* name, int sign,
   return offset + 3;
 }
 //< Jumping Back and Forth jump-instruction
+// constant instructions
+static int constantLongInstruction(const char* name, Chunk* chunk, int offset) {
+  // Read the three bytes and reconstruct the 24-bit index
+  uint32_t index = chunk->code[offset + 1] |
+                   (chunk->code[offset + 2] << 8) |
+                   (chunk->code[offset + 3] << 16);
+
+  printf("%-16s %4d '", name, index);
+  printValue(chunk->constants.values[index]);
+  printf("'\n");
+
+  return offset + 4; // Opcode + 3 bytes
+}
 //> disassemble-instruction
 int disassembleInstruction(Chunk* chunk, int offset) {
   printf("%04d ", offset);
@@ -220,6 +233,8 @@ int disassembleInstruction(Chunk* chunk, int offset) {
     case OP_METHOD:
       return constantInstruction("OP_METHOD", chunk, offset);
 //< Methods and Initializers disassemble-method
+    case OP_CONSTANT_LONG:
+      return constantLongInstruction("OP_CONSTANT_LONG", chunk, offset);
     default:
       printf("Unknown opcode %d\n", instruction);
       return offset + 1;

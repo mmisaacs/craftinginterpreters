@@ -1,0 +1,27 @@
+var map = {};
+var size = 500;
+var churn = 50000;
+
+// fill map to max
+for (var i = 0; i < size; i = i + 1) {
+    map["item_" + str(i)] = i;
+}
+
+var start = clock();
+
+// churn: delete and immediately replace
+for (var j = 0; j < churn; j = j + 1) {
+    var key = "item_" + str(j % size);
+
+    map.delete(key);
+
+    map[key] = j;
+}
+
+// measure lookup speed after the churn
+for (var k = 0; k < size; k = k + 1) {
+    var val = map["item_" + str(k)];
+}
+
+print "Churn Time: ";
+print clock() - start;

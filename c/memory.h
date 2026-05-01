@@ -43,5 +43,6 @@ void collectGarbage();
 //> Strings free-objects-h
 void freeObjects();
 //< Strings free-objects-h
+void initHeap();
 
 #endif

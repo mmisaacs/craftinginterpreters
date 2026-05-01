@@ -25,6 +25,12 @@
 //< Strings vm-include-object-memory
 #include "vm.h"
 
+#define READ_BYTE() (*vm.ip++)
+
+#define READ_24BIT() \
+  (vm.ip += 3, \
+  (uint32_t)(vm.ip[-3] | (vm.ip[-2] << 8) | (vm.ip[-1] << 16)))
+
 VM vm; // [one]
 //> Calls and Functions clock-native
 static Value clockNative(int argCount, Value* args) {
@@ -487,6 +493,13 @@ static InterpretResult run() {
 //< push-constant
         break;
       }
+    case OP_CONSTANT_LONG: {
+      // Read 24-bit index (same logic as disassembler)
+      uint32_t index = READ_BYTE() | (READ_BYTE() << 8) | (READ_BYTE() << 16);
+      Value constant = chunk->constants.values[index];
+      push(constant);
+      break;
+    }
 //< op-constant
 //> Types of Values interpret-literals
       case OP_NIL: push(NIL_VAL); break;
@@ -517,9 +530,21 @@ static InterpretResult run() {
 //> Calls and Functions set-local
         frame->slots[slot] = peek(0);
 //< Calls and Functions set-local
+        checkWatchers();
         break;
       }
 //< Local Variables interpret-set-local
+      case OP_GET_LOCAL_LONG: {
+          uint32_t slot = READ_24BIT();
+          push(vm.stack[slot]);
+          break;
+      }
+      case OP_SET_LOCAL_LONG: {
+          uint32_t slot = READ_24BIT();
+          vm.stack[slot] = peek(0);
+          checkWatchers();
+          break;
+      }
 //> Global Variables interpret-get-global
       case OP_GET_GLOBAL: {
         ObjString* name = READ_STRING();
@@ -548,6 +573,7 @@ static InterpretResult run() {
           runtimeError("Undefined variable '%s'.", name->chars);
           return INTERPRET_RUNTIME_ERROR;
         }
+        checkWatchers();
         break;
       }
 //< Global Variables interpret-set-global
@@ -562,6 +588,7 @@ static InterpretResult run() {
       case OP_SET_UPVALUE: {
         uint8_t slot = READ_BYTE();
         *frame->closure->upvalues[slot]->location = peek(0);
+        checkWatchers();
         break;
       }
 //< Closures interpret-set-upvalue
@@ -612,6 +639,7 @@ static InterpretResult run() {
         Value value = pop();
         pop();
         push(value);
+        checkWatchers();
         break;
       }
 //< Classes and Instances interpret-set-property
@@ -644,9 +672,9 @@ static InterpretResult run() {
       case OP_MULTIPLY: BINARY_OP(*); break;
       case OP_DIVIDE:   BINARY_OP(/); break;
 */
-/* A Virtual Machine op-negate < Types of Values op-negate
-      case OP_NEGATE:   push(-pop()); break;
-*/
+// A Virtual Machine op-negate < Types of Values op-negate
+      case OP_NEGATE:   vm.stackTop[-1] = -vm.stackTop[-1]; break;
+//
 /* Types of Values op-arithmetic < Strings add-strings
       case OP_ADD:      BINARY_OP(NUMBER_VAL, +); break;
 */
@@ -682,7 +710,8 @@ static InterpretResult run() {
           runtimeError("Operand must be a number.");
           return INTERPRET_RUNTIME_ERROR;
         }
-        push(NUMBER_VAL(-AS_NUMBER(pop())));
+      // access the top of stack directly
+        vm.stackTop[-1] = NUMBER_VAL(-AS_NUMBER(vm.stackTop[-1]));
         break;
 //< Types of Values op-negate
 //> Global Variables interpret-print
@@ -844,6 +873,15 @@ static InterpretResult run() {
         defineMethod(READ_STRING());
         break;
 //< Methods and Initializers interpret-method
+      case OP_DUP:
+        push(peek(0));
+        break;
+
+      case OP_RESUME: {
+          vm.ip = vm.interruptedIp;
+          vm.isHandlingWatcher = false;
+          break;
+        }
     }
   }
 
@@ -931,3 +969,20 @@ InterpretResult interpret(const char* source) {
 //< Compiling Expressions interpret-chunk
 }
 //< interpret
+
+void checkWatchers() {
+  for (int i = 0; i < vm.watcherCount; i++) {
+    Watcher* w = &vm.watchers[i];
+    //if not hit yet, ignore iteration
+    if (w->isActive) continue;
+
+    Value result = runConditionChunk(&w->condition);
+
+    //if watch is found, discontinue for loop
+    if (asBool(result)) {
+      w->isActive = true;
+      executeHandler(w->handlerAddress);
+      w->isActive = false;
+    }
+  }
+}

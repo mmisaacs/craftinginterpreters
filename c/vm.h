@@ -27,6 +27,12 @@
 //> Calls and Functions call-frame
 
 typedef struct {
+  Chunk condition;
+  int handlerAddress;
+  bool isActive;
+} Watcher;
+
+typedef struct {
 /* Calls and Functions call-frame < Closures call-frame-closure
   ObjFunction* function;
 */
@@ -79,6 +85,9 @@ typedef struct {
   int grayCapacity;
   Obj** grayStack;
 //< Garbage Collection vm-gray-stack
+  //vm-watch
+  Watcher watchers[MAX_WATCHERS];
+  int watcherCount;
 } VM;
 
 //> interpret-result

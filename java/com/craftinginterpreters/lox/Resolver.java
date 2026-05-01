@@ -8,17 +8,18 @@ import java.util.Stack;
 
 class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private final Interpreter interpreter;
-//> scopes-field
-  private final Stack<Map<String, Boolean>> scopes = new Stack<>();
-//< scopes-field
-//> function-type-field
+
+  //declare scopes
+  private final Stack<Map<String, Variable>> scopes = new Stack<>();
+
+  //functionType base
   private FunctionType currentFunction = FunctionType.NONE;
-//< function-type-field
+
 
   Resolver(Interpreter interpreter) {
     this.interpreter = interpreter;
   }
-//> function-type
+
   private enum FunctionType {
     NONE,
 /* Resolving and Binding function-type < Classes function-type-method
@@ -32,8 +33,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     METHOD
 //< Classes function-type-method
   }
-//< function-type
-//> Classes class-type
 
   private enum ClassType {
     NONE,
@@ -44,6 +43,26 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     CLASS,
     SUBCLASS
 //< Inheritance class-type-subclass
+  }
+
+  //variable class to check if variable has been used
+  private static class Variable {
+    final Token name;
+    VariableState state;
+    final int index;
+
+    private Variable(Token name, VariableState state, int index) {
+      this.name = name;
+      this.state = state;
+      this.index = index;
+    }
+  }
+
+  //variable states to check usage
+  private enum VariableState {
+    DECLARED,
+    DEFINED,
+    READ
   }
 
   private ClassType currentClass = ClassType.NONE;
@@ -104,6 +123,7 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 //> resolver-begin-this-scope
     beginScope();
     scopes.peek().put("this", true);
+    scopes.peek().put("inner", true);
 
 //< resolver-begin-this-scope
     for (Stmt.Function method : stmt.methods) {
@@ -207,16 +227,33 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 //> visit-while-stmt
   @Override
   public Void visitWhileStmt(Stmt.While stmt) {
-    resolve(stmt.condition);
-    resolve(stmt.body);
+    while (isTruthy(evaluate(stmt.condition))) {
+      try {
+        execute(stmt.body);
+      } catch (BreakException b) {
+        break; // Exit the Java while loop
+      } catch (ContinueException c) {
+        // Do nothing; the Java loop continues to the next iteration
+        continue;
+      }
+    }
     return null;
   }
 //< visit-while-stmt
+  @Override
+  public Void visitBreakStmt(Stmt.Break stmt) {
+    throw new BreakException();
+  }
+
+  @Override
+  public Void visitContinueStmt(Stmt.Continue stmt) {
+    throw new ContinueException();
+  }
 //> visit-assign-expr
   @Override
   public Void visitAssignExpr(Expr.Assign expr) {
     resolve(expr.value);
-    resolveLocal(expr, expr.name);
+    resolveLocal(expr, expr.name, false);
     return null;
   }
 //< visit-assign-expr
@@ -320,12 +357,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   @Override
   public Void visitVariableExpr(Expr.Variable expr) {
     if (!scopes.isEmpty() &&
-        scopes.peek().get(expr.name.lexeme) == Boolean.FALSE) {
+        scopes.peek().containsKey(expr.name.lexeme) &&
+        scopes.peek().get(expr.name.lexeme).state == VariableState.DECLARED) {
       Lox.error(expr.name,
           "Can't read local variable in its own initializer.");
     }
 
-    resolveLocal(expr, expr.name);
+    resolveLocal(expr, expr.name, true);
     return null;
   }
 //< visit-variable-expr
@@ -344,16 +382,17 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
   private void resolveFunction(Stmt.Function function) {
 */
 //> set-current-function
-  private void resolveFunction(
-      Stmt.Function function, FunctionType type) {
+  private void resolveFunction(Stmt.Function function, FunctionType type) {
     FunctionType enclosingFunction = currentFunction;
     currentFunction = type;
 
 //< set-current-function
     beginScope();
-    for (Token param : function.params) {
-      declare(param);
-      define(param);
+    if(function.params != null) {
+        for (Token param : function.params) {
+            declare(param);
+            define(param);
+        }
     }
     resolve(function.body);
     endScope();
@@ -364,19 +403,27 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 //< resolve-function
 //> begin-scope
   private void beginScope() {
-    scopes.push(new HashMap<String, Boolean>());
+    scopes.push(new HashMap<String, Variable>());
   }
 //< begin-scope
 //> end-scope
   private void endScope() {
-    scopes.pop();
+    //pop the variables stored in scope
+    Map<String, Variable> scope = scopes.pop();
+
+    //for each popped check if used. if not send error it wasn't used
+    for (Map.Entry<String, Variable> entry : scope.entrySet()) {
+      if (entry.getValue().state == VariableState.DEFINED) {
+        Lox.error(entry.getValue().name, "Local variable is not used.");
+      }
+    }
   }
 //< end-scope
 //> declare
   private void declare(Token name) {
     if (scopes.isEmpty()) return;
 
-    Map<String, Boolean> scope = scopes.peek();
+    Map<String, Variable> scope = scopes.peek();
 //> duplicate-variable
     if (scope.containsKey(name.lexeme)) {
       Lox.error(name,
@@ -384,13 +431,13 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
 //< duplicate-variable
-    scope.put(name.lexeme, false);
+    scope.put(name.lexeme, new Variable(name, VariableState.DECLARED));
   }
 //< declare
 //> define
   private void define(Token name) {
     if (scopes.isEmpty()) return;
-    scopes.peek().put(name.lexeme, true);
+    scopes.peek().get(name.lexeme).state = VariableState.DEFINED;
   }
 //< define
 //> resolve-local
@@ -398,9 +445,26 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     for (int i = scopes.size() - 1; i >= 0; i--) {
       if (scopes.get(i).containsKey(name.lexeme)) {
         interpreter.resolve(expr, scopes.size() - 1 - i);
+
+        //check if the variable was read. mark it read if so
+        if (isRead) {
+          scopes.get(i).get(name.lexeme).state = VariableState.READ;
+        }
+
         return;
       }
     }
   }
 //< resolve-local
+
+  private void checkVariable(Token name){
+    if (scopes.isEmpty()) return;
+
+    Map<String, Boolean> used = scopes.peek();
+
+    if(used.get(name) == false){
+      Lox.Error(name, "Variable was never used.");
+    }
+    if(used)
+  }
 }

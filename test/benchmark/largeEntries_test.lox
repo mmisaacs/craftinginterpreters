@@ -1,0 +1,18 @@
+var start = clock();
+var map = {}; // Assuming you've exposed Tables to Lox
+var iterations = 10000;
+var lookups = 100000;
+
+// mass insertion
+for (var i = 0; i < iterations; i = i + 1) {
+    // Generate unique strings like "key_1", "key_2"...
+    map["key_" + str(i)] = i;
+}
+
+// mass retrieval
+for (var j = 0; j < lookups; j = j + 1) {
+    var value = map["key_" + str(j % iterations)];
+}
+
+print "Time taken to complete: ";
+print clock() - start;

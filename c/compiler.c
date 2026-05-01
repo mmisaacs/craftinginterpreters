@@ -36,6 +36,7 @@ typedef struct {
 typedef enum {
   PREC_NONE,
   PREC_ASSIGNMENT,  // =
+  PREC_TERNARY,     // ?
   PREC_OR,          // or
   PREC_AND,         // and
   PREC_EQUALITY,    // == !=
@@ -72,6 +73,7 @@ typedef struct {
 //> Closures is-captured-field
   bool isCaptured;
 //< Closures is-captured-field
+  bool isConst;
 } Local;
 //< Local Variables local-struct
 //> Closures upvalue-struct
@@ -106,10 +108,10 @@ typedef struct Compiler {
   FunctionType type;
 
 //< Calls and Functions function-fields
-  Local locals[UINT8_COUNT];
+  Local locals[MAX_LOCALS];
   int localCount;
 //> Closures upvalues-array
-  Upvalue upvalues[UINT8_COUNT];
+  Upvalue upvalues[MAX_LOCALS];
 //< Closures upvalues-array
   int scopeDepth;
 } Compiler;
@@ -390,6 +392,8 @@ static void endScope() {
 //> Closures end-scope
     if (current->locals[current->localCount - 1].isCaptured) {
       emitByte(OP_CLOSE_UPVALUE);
+    } else if (current->locals[current->localCount - 1].isCaptured) {
+      emitByte(OP_CLOSE_UPVALUE);
     } else {
       emitByte(OP_POP);
     }
@@ -454,7 +458,7 @@ static int addUpvalue(Compiler* compiler, uint8_t index,
 
 //< existing-upvalue
 //> too-many-upvalues
-  if (upvalueCount == UINT8_COUNT) {
+  if (upvalueCount == MAX_LOCALS) {
     error("Too many closure variables in function.");
     return 0;
   }
@@ -490,7 +494,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 //> Local Variables add-local
 static void addLocal(Token name) {
 //> too-many-locals
-  if (current->localCount == UINT8_COUNT) {
+  if (current->localCount == MAX_LOCALS) {
     error("Too many local variables in function.");
     return;
   }
@@ -507,6 +511,7 @@ static void addLocal(Token name) {
 //> Closures init-is-captured
   local->isCaptured = false;
 //< Closures init-is-captured
+  local->isConstant = false;
 }
 //< Local Variables add-local
 //> Local Variables declare-variable
@@ -724,9 +729,17 @@ static void namedVariable(Token name, bool canAssign) {
 //> Local Variables named-local
   uint8_t getOp, setOp;
   int arg = resolveLocal(current, &name);
+  bool isConstant = false;
+
   if (arg != -1) {
-    getOp = OP_GET_LOCAL;
-    setOp = OP_SET_LOCAL;
+    if (arg <= 255) {
+      getOp = OP_GET_LOCAL;
+      setOp = OP_SET_LOCAL;
+    } else {
+      getOp = OP_GET_LOCAL_LONG;
+      setOp = OP_SET_LOCAL_LONG;
+    }
+    isConstant = current->locals[arg].isConstant;
 //> Closures named-variable-upvalue
   } else if ((arg = resolveUpvalue(current, &name)) != -1) {
     getOp = OP_GET_UPVALUE;
@@ -748,21 +761,29 @@ static void namedVariable(Token name, bool canAssign) {
 */
 //> named-variable-can-assign
   if (canAssign && match(TOKEN_EQUAL)) {
+    if (isConstant){
+      error("Cannot assign to a constant variable");
+    }
 //< named-variable-can-assign
     expression();
 /* Global Variables named-variable < Local Variables emit-set
     emitBytes(OP_SET_GLOBAL, arg);
 */
 //> Local Variables emit-set
-    emitBytes(setOp, (uint8_t)arg);
-//< Local Variables emit-set
+    if (arg <= 255) {
+      emitBytes(setOp, (uint8_t)arg);
+    } else {
+      emitByte(setOp);
+      emit24BitOperand(arg); // Helper function to emit 3 bytes
+    }
   } else {
-/* Global Variables named-variable < Local Variables emit-get
-    emitBytes(OP_GET_GLOBAL, arg);
-*/
-//> Local Variables emit-get
-    emitBytes(getOp, (uint8_t)arg);
-//< Local Variables emit-get
+    // Emit the getter
+    if (arg <= 255) {
+      emitBytes(getOp, (uint8_t)arg);
+    } else {
+      emitByte(getOp);
+      emit24BitOperand(arg);
+    }
   }
 //< named-variable
 }
@@ -974,6 +995,7 @@ ParseRule rules[] = {
   [TOKEN_WHILE]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_ERROR]         = {NULL,     NULL,   PREC_NONE},
   [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
+  [TOKEN_QUESTION]      = {NULL,     ternary, PREC_TERNARY},
 };
 //< Compiling Expressions rules
 //> Compiling Expressions parse-precedence
@@ -1304,6 +1326,12 @@ static void ifStatement() {
 //< patch-else
 }
 //< Jumping Back and Forth if-statement
+static void ternary()
+{
+  parsePrecedence(compiler, PREC_TERNARY);
+  consume(compiler, TOKEN_COLON, "Expect ':' after ternary condition.");
+  parsePrecedence(compiler, PREC_ASSIGNMENT);
+}
 //> Global Variables print-statement
 static void printStatement() {
   expression();
@@ -1522,3 +1550,96 @@ void markCompilerRoots() {
   }
 }
 //< Garbage Collection mark-compiler-roots
+// declare const as a keyword
+// variable must be initiallized if it is declared as const
+static void constDeclaration() {
+  uint8_t global = parseVariable("Expect variable name.");
+
+  if (match(TOKEN_EQUAL)) {
+    expression();
+  } else {
+    error("Constants must be initialized.");
+  }
+  consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+
+  defineVariable(global, true); // Pass 'true' for isConst
+}
+
+//helper function for increasing the amount of local variables
+//increases the operand to the chunk
+static void emit24BitOperand(int arg) {
+  emitByte((uint8_t)(arg & 0xff));         // Low byte
+  emitByte((uint8_t)((arg >> 8) & 0xff));  // Middle byte
+  emitByte((uint8_t)((arg >> 16) & 0xff)); // High byte
+}
+
+static void switchStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before switch body.");
+
+  //tracks number of jumps
+  int endJumps[256];
+  int jumpCount = 0;
+
+  //compare switch value and case expr
+  while (match(TOKEN_CASE)) {
+    emitByte(OP_DUP);
+    expression();
+    emitByte(OP_EQUAL);
+
+    //if not equal, jump
+    int nextCaseJump = emitJump(OP_JUMP_IF_FALSE);
+    emitByte(OP_POP);
+
+    consume(TOKEN_COLON, "Expect ':' after case expression.");
+
+    while (!check(TOKEN_CASE) && !check(TOKEN_DEFAULT) && !check(TOKEN_RIGHT_BRACE)) {
+      statement();
+    }
+
+    //jump to end of switch
+    endJumps[jumpCount++] = emitJump(OP_JUMP);
+
+    //patch jump if issue
+    patchJump(nextCaseJump);
+    emitByte(OP_POP);
+  }
+
+  if (match(TOKEN_DEFAULT)) {
+    consume(TOKEN_COLON, "Expect ':' after 'default'.");
+    while (!check(TOKEN_RIGHT_BRACE)) {
+      statement();
+    }
+  }
+
+  for (int i = 0; i < jumpCount; i++) {
+    patchJump(endJumps[i]);
+  }
+
+  consume(TOKEN_RIGHT_BRACE, "Expect '}' after switch body.");
+  emitByte(OP_POP);
+}
+
+static void wheneverStatement() {
+  consume(TOKEN_LEFT_PAREN, "Expect '(' after 'whenever'.");
+  //Compile condition
+  int conditionStart = currentChunk()->count;
+  expression();
+  consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+  emitByte(OP_RETURN_WATCHER);
+
+  consume(TOKEN_LEFT_BRACE, "Expect '{' before whenever body.");
+
+  int jumpToEnd = emitJump(OP_JUMP);
+  int handlerStart = currentChunk()->count;
+
+  statement();
+  emitByte(OP_RESUME);
+
+  patchJump(jumpToEnd);
+
+  // reregister watch
+  emitByte(OP_REGISTER_WATCHER);
+}

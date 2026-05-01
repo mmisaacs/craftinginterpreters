@@ -18,19 +18,23 @@ class Parser {
 //< parse-error
   private final List<Token> tokens;
   private int current = 0;
+  private int loopDepth = 0;
+
+  private boolean allowExpression;
+  private boolean foundExpression = false;
 
   Parser(List<Token> tokens) {
     this.tokens = tokens;
   }
-/* Parsing Expressions parse < Statements and State parse
-  Expr parse() {
+  // Parsing Expressions parse < Statements and State parse
+  public Object parseExpression() {
     try {
       return expression();
     } catch (ParseError error) {
       return null;
     }
   }
-*/
+
 //> Statements and State parse
   List<Stmt> parse() {
     List<Stmt> statements = new ArrayList<>();
@@ -86,6 +90,15 @@ class Parser {
     }
 
 //< Inheritance parse-superclass
+
+    List<Expr.Variable> mixins = new ArrayList<>();
+    if (match(WITH)) {
+      do {
+        consume(IDENTIFIER, "Expect mixin name.");
+        mixins.add(new Expr.Variable(previous()));
+      } while (match(COMMA));
+    }
+
     consume(LEFT_BRACE, "Expect '{' before class body.");
 
     List<Stmt.Function> methods = new ArrayList<>();
@@ -103,6 +116,20 @@ class Parser {
 //< Inheritance construct-class-ast
   }
 //< Classes parse-class-declaration
+
+  private Stmt mixinDeclaration(){
+    Token name = consume(IDENTIFIER, "Expect mixin name.");
+    consume(LEFT_BRACE, "Expect '{' before mixin body.");
+
+    List<Stmt.Function> methods = new ArrayList<>();
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+      methods.add(function("method"));
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after mixin body.");
+    return new Stmt.Mixin(name, methods);
+  }
+
 //> Statements and State parse-statement
   private Stmt statement() {
 //> Control Flow match-for
@@ -118,6 +145,8 @@ class Parser {
 //> Control Flow match-while
     if (match(WHILE)) return whileStatement();
 //< Control Flow match-while
+    //keyword for break
+    if (match(BREAK)) return breakStatement();
 //> parse-block
     if (match(LEFT_BRACE)) return new Stmt.Block(block());
 //< parse-block
@@ -161,27 +190,32 @@ class Parser {
 //> for-body
     Stmt body = statement();
 
-//> for-desugar-increment
-    if (increment != null) {
-      body = new Stmt.Block(
-          Arrays.asList(
-              body,
-              new Stmt.Expression(increment)));
+    try{
+      loopDepth++;
+      Stmt body = statement();
+
+      //> for-desugar-increment
+      if (increment != null) {
+        body = new Stmt.Block(Arrays.asList(
+                        body, new Stmt.Expression(increment)));
+      }
+     //< for-desugar-increment
+      //> for-desugar-condition
+      if (condition == null) condition = new Expr.Literal(true);
+      body = new Stmt.While(condition, body);
+      //< for-desugar-condition
+
+      //> for-desugar-initializer
+      if (initializer != null) {
+        body = new Stmt.Block(Arrays.asList(initializer, body));
+      }
+      //< for-desugar-initializer
+
+      return body;
     }
-
-//< for-desugar-increment
-//> for-desugar-condition
-    if (condition == null) condition = new Expr.Literal(true);
-    body = new Stmt.While(condition, body);
-
-//< for-desugar-condition
-//> for-desugar-initializer
-    if (initializer != null) {
-      body = new Stmt.Block(Arrays.asList(initializer, body));
+    finally{
+      loopDepth--''
     }
-
-//< for-desugar-initializer
-    return body;
 //< for-body
   }
 //< Control Flow for-statement
@@ -237,11 +271,27 @@ class Parser {
     consume(LEFT_PAREN, "Expect '(' after 'while'.");
     Expr condition = expression();
     consume(RIGHT_PAREN, "Expect ')' after condition.");
-    Stmt body = statement();
 
-    return new Stmt.While(condition, body);
+    try {
+      loopDepth++;
+      Stmt body = statement();
+
+      return new Stmt.While(condition, body);
+    } finally {
+      loopDepth--;
+    }
   }
 //< Control Flow while-statement
+
+  //break statement
+  private Stmt breakStatement() {
+    if (loopDepth == 0) {
+      error(previous(), "Must be inside a loop to use 'break'.");
+    }
+    consume(SEMICOLON, "Expect ';' after 'break'.");
+    return new Stmt.Break();
+  }
+
 //> Statements and State parse-expression-statement
   private Stmt expressionStatement() {
     Expr expr = expression();
@@ -253,19 +303,22 @@ class Parser {
   private Stmt.Function function(String kind) {
     Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
 //> parse-parameters
-    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
-    List<Token> parameters = new ArrayList<>();
-    if (!check(RIGHT_PAREN)) {
-      do {
-        if (parameters.size() >= 255) {
-          error(peek(), "Can't have more than 255 parameters.");
-        }
+    List<Token> parameters = null;
+    if (!kind.equals("method") || check(LEFT_PAREN)) {
+        consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+        parameters = new ArrayList<>();
 
-        parameters.add(
-            consume(IDENTIFIER, "Expect parameter name."));
-      } while (match(COMMA));
+        if (!check(RIGHT_PAREN)) {
+            do {
+                if (parameters.size() >= 255) {
+                    error(peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            } while (match(COMMA));
+        }
+        consume(RIGHT_PAREN, "Expect ')' after parameters.");
     }
-    consume(RIGHT_PAREN, "Expect ')' after parameters.");
 //< parse-parameters
 //> parse-body
 
@@ -486,6 +539,10 @@ class Parser {
       consume(RIGHT_PAREN, "Expect ')' after expression.");
       return new Expr.Grouping(expr);
     }
+
+    if (match(FUN)) {
+      return functionBody("function");
+    }
 //> primary-error
 
     throw error(peek(), "Expect expression.");
@@ -523,6 +580,20 @@ class Parser {
     return previous();
   }
 //< advance
+  private Expr.Lambda functionBody(String kind) {
+    consume(LEFT_PAREN, "Expect '(' after " + kind + ".");
+    List<Token> parameters = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (parameters.size() >= 255) error(peek(), "Cannot have more than 255 parameters.");
+        parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+      } while (match(COMMA));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    return new Expr.Lambda(parameters, body);
+  }
 //> utils
   private boolean isAtEnd() {
     return peek().type == EOF;
