@@ -401,11 +401,12 @@ static void concatenate() {
 static InterpretResult run() {
 //> Calls and Functions run
   CallFrame* frame = &vm.frames[vm.frameCount - 1];
+  register uint8_t* ip = frame->ip;
 
 /* A Virtual Machine run < Calls and Functions run
 #define READ_BYTE() (*vm.ip++)
 */
-#define READ_BYTE() (*frame->ip++)
+#define READ_BYTE() (*ip++)
 /* A Virtual Machine read-constant < Calls and Functions run
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 */
@@ -760,12 +761,15 @@ static InterpretResult run() {
 //> Calls and Functions interpret-call
       case OP_CALL: {
         int argCount = READ_BYTE();
+        frame->ip = ip;
+
         if (!callValue(peek(argCount), argCount)) {
           return INTERPRET_RUNTIME_ERROR;
         }
 //> update-frame-after-call
         frame = &vm.frames[vm.frameCount - 1];
 //< update-frame-after-call
+          ip = frame->ip;
         break;
       }
 //< Calls and Functions interpret-call
@@ -821,14 +825,8 @@ static InterpretResult run() {
       case OP_RETURN: {
 /* A Virtual Machine print-return < Global Variables op-return
         printValue(pop());
-        printf("\n");
-*/
-/* Global Variables op-return < Calls and Functions interpret-return
-        // Exit interpreter.
-*/
-/* A Virtual Machine run < Calls and Functions interpret-return
-        return INTERPRET_OK;
-*/
+        printf("\n");*/
+
 //> Calls and Functions interpret-return
         Value result = pop();
 //> Closures return-close-upvalues
@@ -843,6 +841,7 @@ static InterpretResult run() {
         vm.stackTop = frame->slots;
         push(result);
         frame = &vm.frames[vm.frameCount - 1];
+          ip = frame->ip;
         break;
 //< Calls and Functions interpret-return
       }
