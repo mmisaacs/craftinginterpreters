@@ -88,6 +88,7 @@ typedef struct {
   //vm-watch
   Watcher watchers[MAX_WATCHERS];
   int watcherCount;
+  const char* nativeError; //stores error messages
 } VM;
 
 //> interpret-result

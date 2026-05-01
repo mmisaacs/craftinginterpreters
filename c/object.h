@@ -2,6 +2,7 @@
 #ifndef clox_object_h
 #define clox_object_h
 
+#include <stdbool.h>
 #include "common.h"
 //> Calls and Functions object-include-chunk
 #include "chunk.h"
@@ -111,7 +112,7 @@ typedef struct {
 //< Calls and Functions obj-function
 //> Calls and Functions obj-native
 
-typedef Value (*NativeFn)(int argCount, Value* args);
+typedef bool (*NativeFn)(int argCount, Value* args, Value* result);
 
 typedef struct {
   Obj obj;

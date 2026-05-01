@@ -33,8 +33,9 @@
 
 VM vm; // [one]
 //> Calls and Functions clock-native
-static Value clockNative(int argCount, Value* args) {
-  return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+static bool clockNative(int argCount, Value* args, Value* result) {
+  *result = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+  return true;
 }
 //< Calls and Functions clock-native
 //> reset-stack
@@ -256,16 +257,21 @@ static bool callValue(Value callee, int argCount) {
       case OBJ_NATIVE: {
         ObjNative* native = AS_NATIVE(callee);
 
-        if (argCount != native->arity)
-        {
+        if (argCount != native->arity) {
           runtimeError("Expected %d arguments but got %d.",native->arity, argCount);
           return false;
         }
-        NativeFn nativeFn = native->function;
-        Value result = native(argCount, vm.stackTop - argCount);
-        vm.stackTop -= argCount + 1;
-        push(result);
-        return true;
+
+        vm.nativeError = NULL;
+        Value result;
+
+        if (native->function(argCount, vm.stackTop - argCount, &result)) {
+          vm.stackTop -= argCount + 1;
+          push(result);
+          return true;
+        } else {
+          return false;
+        }
       }
 //< call-native
       default:
