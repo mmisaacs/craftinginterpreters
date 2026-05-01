@@ -116,6 +116,7 @@ typedef Value (*NativeFn)(int argCount, Value* args);
 typedef struct {
   Obj obj;
   NativeFn function;
+  int arity;
 } ObjNative;
 //< Calls and Functions obj-native
 //> obj-string
