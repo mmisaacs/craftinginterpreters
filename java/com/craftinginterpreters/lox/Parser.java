@@ -214,7 +214,7 @@ class Parser {
       return body;
     }
     finally{
-      loopDepth--''
+      loopDepth--;
     }
 //< for-body
   }

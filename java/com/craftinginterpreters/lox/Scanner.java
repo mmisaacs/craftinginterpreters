@@ -114,20 +114,13 @@ class Scanner {
 //> char-error
 
       default:
-/* Scanning char-error < Scanning digit-start
-        Lox.error(line, "Unexpected character.");
-*/
-//> digit-start
         if (isDigit(c)) {
           number();
-//> identifier-start
         } else if (isAlpha(c)) {
           identifier();
-//< identifier-start
         } else {
           Lox.error(line, "Unexpected character.");
         }
-//< digit-start
         break;
 //< char-error
     }

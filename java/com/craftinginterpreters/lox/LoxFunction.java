@@ -7,15 +7,7 @@ class LoxFunction implements LoxCallable {
   private final Stmt.Function declaration;
 //> closure-field
   private final Environment closure;
-  
-//< closure-field
-/* Functions lox-function < Functions closure-constructor
-  LoxFunction(Stmt.Function declaration) {
-*/
-/* Functions closure-constructor < Classes is-initializer-field
-  LoxFunction(Stmt.Function declaration, Environment closure) {
-*/
-//> Classes is-initializer-field
+
   private final boolean isInitializer;
 
   LoxFunction(Stmt.Function declaration, Environment closure,
@@ -63,7 +55,6 @@ class LoxFunction implements LoxCallable {
     }
 
     return instance;
-  }
 
 /* Functions function-call < Functions catch-return
     interpreter.executeBlock(declaration.body, environment);
@@ -84,7 +75,7 @@ class LoxFunction implements LoxCallable {
     if (isInitializer) return closure.getAt(0, "this");
 //< Classes return-this
     return null;
-  }
+}
 //< function-call
   public boolean isGetter(){
     return declaration.params == null;

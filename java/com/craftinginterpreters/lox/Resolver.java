@@ -465,6 +465,6 @@ class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     if(used.get(name) == false){
       Lox.Error(name, "Variable was never used.");
     }
-    if(used)
+    //if(used)
   }
 }
