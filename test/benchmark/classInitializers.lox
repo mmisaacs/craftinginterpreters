@@ -1,0 +1,12 @@
+class Point {
+  init(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+}
+
+var start = clock();
+for (var i = 0; i < 1000000; i = i + 1) {
+  Point(i, i);
+}
+print clock() - start;
