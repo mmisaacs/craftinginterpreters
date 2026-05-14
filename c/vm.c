@@ -38,6 +38,15 @@ static bool clockNative(int argCount, Value* args, Value* result) {
   return true;
 }
 //< Calls and Functions clock-native
+static Value inputNative(int argCount, Value* args) {
+  char buffer[1024];
+  if (fgets(buffer, sizeof(buffer), stdin)) {
+    // Strip newline
+    buffer[strcspn(buffer, "\n")] = 0;
+    return OBJ_VAL(copyString(buffer, strlen(buffer)));
+  }
+  return OBJ_VAL(copyString("", 0));
+}
 //> reset-stack
 static void resetStack() {
   vm.stackTop = vm.stack;
@@ -137,6 +146,7 @@ void initVM() {
 
   defineNative("clock", clockNative, 0);
 //< Calls and Functions define-native-clock
+  defineNative("input", inputNative);
 }
 
 void freeVM() {
