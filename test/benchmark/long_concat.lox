@@ -1,0 +1,11 @@
+var start = clock();
+
+var i = 0;
+var s = "";
+
+while (i < 1000000) {
+  s = "hello, " + "world!";
+  i = i + 1;
+}
+
+print clock() - start;

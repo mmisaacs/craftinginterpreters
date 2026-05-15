@@ -1,0 +1,11 @@
+var start = clock();
+
+var i = 0;
+var s = "";
+
+while (i < 5000000) {
+  s = "a" + "b";
+  i = i + 1;
+}
+
+print clock() - start;
