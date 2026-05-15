@@ -41,7 +41,6 @@ static bool clockNative(int argCount, Value* args, Value* result) {
 static Value inputNative(int argCount, Value* args) {
   char buffer[1024];
   if (fgets(buffer, sizeof(buffer), stdin)) {
-    // Strip newline
     buffer[strcspn(buffer, "\n")] = 0;
     return OBJ_VAL(copyString(buffer, strlen(buffer)));
   }
