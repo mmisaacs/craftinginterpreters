@@ -122,14 +122,14 @@ typedef struct {
 //< Calls and Functions obj-native
 //> obj-string
 
-struct ObjString {
+typedef struct ObjString {
   Obj obj;
   int length;
   char* chars;
 //> Hash Tables obj-string-hash
   uint32_t hash;
 //< Hash Tables obj-string-hash
-};
+} ObjString;
 //< obj-string
 //> Closures obj-upvalue
 typedef struct ObjUpvalue {

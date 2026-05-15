@@ -116,9 +116,6 @@ typedef struct {
   int capacity;
 //< count-and-capacity
   uint8_t* code;
-//> chunk-lines
-  int* lines;
-//< chunk-lines
 //> chunk-constants
   ValueArray constants;
 //< chunk-constants

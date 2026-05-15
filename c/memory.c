@@ -357,3 +357,5 @@ void freeObjects() {
 //< Garbage Collection free-gray-stack
 }
 //< Strings free-objects
+uint8_t* globalHeap = NULL;
+Block* freeList = NULL;

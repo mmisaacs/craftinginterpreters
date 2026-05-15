@@ -128,7 +128,7 @@ typedef struct {
 //> Strings union-object
     Obj* obj;
 //< Strings union-object
-    ShortString* shortString;
+    ShortString shortString;
   } as; // [as]
 } Value;
 //< Types of Values value

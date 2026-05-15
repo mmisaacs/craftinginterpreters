@@ -8,7 +8,7 @@
 //> A Virtual Machine define-debug-trace
 
 //> Optimization define-nan-boxing
-#define NAN_BOXING
+//#define NAN_BOXING
 //< Optimization define-nan-boxing
 //> Compiling Expressions define-debug-print-code
 #define DEBUG_PRINT_CODE
@@ -29,7 +29,6 @@
 #define UINT8_COUNT (UINT8_MAX + 1)
 //< Local Variables uint8-count
 
-#endif
 //> omit
 // In the book, we show them defined, but for working on them locally,
 // we don't want them to be.
@@ -44,6 +43,7 @@ typedef struct Block {
 	struct Block* next; // Next block in our big slab
 } Block;
 
-static uint8_t* globalHeap = NULL;
-static Block* freeList = NULL;
+extern uint8_t* globalHeap;
+extern Block* freeList;
 #define HEAP_SIZE 1024 * 1024 // 1MB personal heap
+#endif
