@@ -397,22 +397,30 @@ static void concatenate() {
   ObjString* a = AS_STRING(pop());
 */
 //> Garbage Collection concatenate-peek
-  ObjString* b = AS_STRING(peek(0));
-  ObjString* a = AS_STRING(peek(1));
+  Value b = peek(0);
+  Value a = peek(1);
 //< Garbage Collection concatenate-peek
 
-  int length = a->length + b->length;
+  int length = stringLength(a) + stringLength(b);
+
+  if (length <= SHORT_STRING_MAX){
+    char chars[SHORT_STRING_MAX];
+    memcpy(chars, stringChars(a), aLength);
+    memcpy(chars + aLength, stringChars(b), bLength);
+
+    pop();
+    pop();
+    push(SHORT_STRING_VAL(length, chars));
+    return;
+  }
   char* chars = ALLOCATE(char, length + 1);
-  memcpy(chars, a->chars, a->length);
-  memcpy(chars + a->length, b->chars, b->length);
+  memcpy(chars, stringChars(a), aLength);
+  memcpy(chars + aLength, stringChars(b), bLength);
   chars[length] = '\0';
 
-  ObjString* result = takeString(chars, length);
-//> Garbage Collection concatenate-pop
   pop();
   pop();
-//< Garbage Collection concatenate-pop
-  push(OBJ_VAL(result));
+  push(OBJ_VAL(takeString(chars, length)));
 }
 //< Strings concatenate
 //> run

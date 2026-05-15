@@ -179,7 +179,7 @@ ObjString* takeString(char* chars, int length) {
   string->isOwned = true;
 
   tableSet(&vm.strings, string, NIL_VAL);
-  return string;''
+  return string;
 }
 
 //> Closures new-upvalue
@@ -251,3 +251,21 @@ void printObject(Value value) {
   }
 }
 //< print-object
+
+Value copyStringValue(const char* chars, int length){
+  if (length <= SHORT_STRING_MAX) {
+    return SHORT_STRING_VAL(length, chars);
+  }
+
+  return OBJ_VAL(copyString(chars, length));
+}
+
+Value takeStringValue(char* chars, int length) {
+  if (length <= SHORT_STRING_MAX) {
+    Value value = SHORT_STRING_VAL(length, chars);
+    FREE_ARRAY(char, chars, length + 1);
+    return value;
+  }
+
+  return OBJ_VAL(takeString(chars, length));
+}

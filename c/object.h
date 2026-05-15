@@ -228,3 +228,6 @@ static inline bool isObjType(Value value, ObjType type) {
 
 //< is-obj-type
 #endif
+
+Value copyStringValue(const char* chars, int length);
+Value takeStringValue(char* chars, int length);

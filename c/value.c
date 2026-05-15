@@ -1,12 +1,8 @@
-//> Chunks of Bytecode value-c
+//include files to add helping functions
 #include <stdio.h>
-//> Strings value-include-string
 #include <string.h>
-//< Strings value-include-string
-
-//> Strings value-include-object
+#include <stdbool.h>
 #include "object.h"
-//< Strings value-include-object
 #include "memory.h"
 #include "value.h"
 
@@ -65,6 +61,10 @@ void printValue(Value value) {
 //> Strings call-print-object
     case VAL_OBJ: printObject(value); break;
 //< Strings call-print-object
+    case VAL_SHORT_STRING:
+      fwrite(value.as.shortString.chars, sizeof(char),
+             value.as.shortString.length, stdout);
+      break;
   }
 //< Types of Values print-value
 //> Optimization end-print-value
@@ -81,7 +81,11 @@ bool valuesEqual(Value a, Value b) {
     return AS_NUMBER(a) == AS_NUMBER(b);
   }
 //< nan-equality
-  return a == b;
+  //helper function call to compare strings
+  if (IS_STRING(a) && IS_STRING(b)) {
+    return stringsEqual(a,b);
+  }
+
 #else
 //< Optimization values-equal
   if (a.type != b.type) return false;
@@ -101,6 +105,7 @@ bool valuesEqual(Value a, Value b) {
 //> Hash Tables equal
     case VAL_OBJ:    return AS_OBJ(a) == AS_OBJ(b);
 //< Hash Tables equal
+    case VAL_SHORT_STRING: return stringsEqual(a, b);
     default:         return false; // Unreachable.
   }
 //> Optimization end-values-equal
@@ -108,3 +113,28 @@ bool valuesEqual(Value a, Value b) {
 //< Optimization end-values-equal
 }
 //< Types of Values values-equal
+Value shortStringVal(int length, const char* chars) {
+  Value value;
+  value.type = VAL_SHORT_STRING;
+  value.as.shortString.length = length;
+  memcpy(value.as.shortString.chars, chars, length);
+  return value;
+}
+
+int stringLength(Value value) {
+  if (IS_SHORT_STRING(value)) return value.as.shortString.length;
+  return AS_STRING(value)->length;
+}
+
+const char* stringChars(Value value) {
+  if (IS_SHORT_STRING(value)) return value.as.shortString.chars;
+  return AS_CSTRING(value);
+}
+
+bool stringsEqual(Value a, Value b) {
+  int aLength = stringLength(a);
+  int bLength = stringLength(b);
+
+  if (aLength != bLength) return false;
+  return memcmp(stringChars(a), stringChars(b), aLength) == 0;
+}

@@ -4,6 +4,7 @@
 //> Optimization include-string
 
 #include <string.h>
+#include <stdbool.h>
 //< Optimization include-string
 
 #include "common.h"
@@ -15,6 +16,14 @@ typedef struct ObjString ObjString;
 //< forward-declare-obj-string
 
 //< Strings forward-declare-obj
+//limit a short string characters
+#define SHORT_STRING_MAX 7
+
+typedef struct {
+  uint8_t length;
+  char chars[SHORT_STRING_MAX];
+} ShortString;
+
 //> Optimization nan-boxing
 #ifdef NAN_BOXING
 //> qnan
@@ -101,8 +110,9 @@ typedef enum {
   VAL_NIL, // [user-types]
   VAL_NUMBER,
 //> Strings val-obj
-  VAL_OBJ
+  VAL_OBJ,
 //< Strings val-obj
+  VAL_SHORT_STRING
 } ValueType;
 
 //< Types of Values value-type
@@ -118,6 +128,7 @@ typedef struct {
 //> Strings union-object
     Obj* obj;
 //< Strings union-object
+    ShortString* shortString;
   } as; // [as]
 } Value;
 //< Types of Values value
@@ -147,6 +158,13 @@ typedef struct {
 #define OBJ_VAL(object)   ((Value){VAL_OBJ, {.obj = (Obj*)object}})
 //< Strings obj-val
 //< Types of Values value-macros
+
+#define IS_SHORT_STRING(value) ((value).type == VAL_SHORT_STRING)
+#define IS_OBJ_STRING(value)   (IS_OBJ(value) && AS_OBJ(value)->type == OBJ_STRING)
+#define IS_STRING(value)      (IS_SHORT_STRING(value) || IS_OBJ_STRING(value))
+
+#define SHORT_STRING_VAL(len_, chars_) \
+shortStringVal((len_), (chars_))
 //> Optimization end-if-nan-boxing
 
 #endif
@@ -160,6 +178,12 @@ typedef struct {
 } ValueArray;
 //< value-array
 //> array-fns-h
+
+//short string values declarations
+Value shortStringVal(int length, const char* chars);
+int stringLength(Value value);
+const char* stringChars(Value value);
+bool stringsEqual(Value a, Value b);
 
 //> Types of Values values-equal-h
 bool valuesEqual(Value a, Value b);
